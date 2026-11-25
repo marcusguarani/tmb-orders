@@ -40,7 +40,9 @@ public sealed class RabbitMqConnectionProvider(
                 VirtualHost = settings.VirtualHost,
                 ClientProvidedName = AppDomain.CurrentDomain.FriendlyName,
                 AutomaticRecoveryEnabled = true,
-                TopologyRecoveryEnabled = true
+                TopologyRecoveryEnabled = true,
+                // Quantas mensagens são processadas em paralelo por canal de consumo.
+                ConsumerDispatchConcurrency = settings.ConsumerConcurrency
             };
 
             _connection = await factory.CreateConnectionAsync(cancellationToken);

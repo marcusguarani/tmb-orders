@@ -1,0 +1,37 @@
+# Requisições de exemplo (Visual Studio, Rider ou VS Code com a extensão "REST Client").
+@api = http://localhost:5080
+
+### Criar pedido
+# @name criar
+POST {{api}}/orders
+Content-Type: application/json
+
+{
+  "cliente": "Maria Silva",
+  "produto": "Notebook Dell Inspiron",
+  "valor": 4599.90
+}
+
+### Detalhes do pedido criado (rode logo após e de novo depois de ~6s para ver o status mudar)
+GET {{api}}/orders/{{criar.response.body.$.id}}
+
+### Listar todos
+GET {{api}}/orders
+
+### Listar só os finalizados
+GET {{api}}/orders?status=Finalizado
+
+### Validação: deve retornar 400 com os erros por campo
+POST {{api}}/orders
+Content-Type: application/json
+
+{
+  "cliente": "",
+  "valor": -10
+}
+
+### Pedido inexistente: deve retornar 404
+GET {{api}}/orders/00000000-0000-0000-0000-000000000000
+
+### Health checks
+GET {{api}}/health

@@ -5,12 +5,16 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace TmbOrders.ServiceDefaults;
 
-
+/// <summary>
+/// Escreve o resultado dos health checks em JSON detalhado,
+/// mostrando o status de cada dependência (postgres, rabbitmq...).
+/// </summary>
 internal static class HealthResponseWriter
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
-        WriteIndented = true,        
+        WriteIndented = true,
+        // Mantém acentos legíveis no JSON (sem escapes Unicode).
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 

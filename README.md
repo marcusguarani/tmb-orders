@@ -4,7 +4,7 @@ Sistema de gestão de pedidos com **processamento assíncrono via mensageria**.
 Ao criar um pedido, a API grava no PostgreSQL e publica o evento `OrderCreated`.
 Um worker consome o evento e avança o status do pedido: **Pendente → Processando → Finalizado**.
 
-> 🚧 Projeto em construção — Fase 1 (infraestrutura e base da solução) concluída.
+> 🚧 Projeto em construção — Fase 2 (API, outbox, mensageria e worker) concluída.
 
 ## Arquitetura
 
@@ -64,6 +64,70 @@ docker compose up -d --build
 | pgAdmin | http://localhost:5050 |
 
 Logins usam os valores definidos no `.env`.
+
+## Endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/orders` | Cria um pedido (status inicial **Pendente**) |
+| GET | `/orders` | Lista os pedidos (filtro opcional `?status=Finalizado`) |
+| GET | `/orders/{id}` | Detalhes do pedido com o **histórico de status** |
+
+Exemplo de criação:
+
+```bash
+curl -X POST http://localhost:5080/orders \
+  -H "Content-Type: application/json" \
+  -d '{"cliente":"Maria Silva","produto":"Notebook","valor":4599.90}'
+```
+
+O arquivo `src/TmbOrders.Api/TmbOrders.Api.http` tem todas as requisições prontas para rodar no
+Visual Studio, Rider ou VS Code (extensão REST Client). Erros seguem o padrão **ProblemDetails (RFC 9457)**.
+
+## Fluxo de mensageria
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant API
+    participant DB as PostgreSQL
+    participant P as Worker (Outbox Publisher)
+    participant MQ as RabbitMQ
+    participant W as Worker (Consumer)
+
+    C->>API: POST /orders
+    API->>DB: INSERT pedido + histórico + outbox (1 transação)
+    API-->>C: 201 Created (Pendente)
+    loop a cada 1s
+        P->>DB: SELECT pendentes FOR UPDATE SKIP LOCKED
+        P->>MQ: publish OrderCreated (publisher confirm)
+        P->>DB: marca mensagem como enviada
+    end
+    MQ->>W: OrderCreated
+    W->>DB: já processada? (mensagens_processadas)
+    W->>DB: status = Processando
+    Note over W: aguarda 5 segundos
+    W->>DB: status = Finalizado + registra mensagem processada
+    W->>MQ: ack
+```
+
+**Mensagem publicada** (exchange `orders.events`, routing key `order.created`):
+
+- Propriedades AMQP: `message_id`, `correlation_id` (= OrderId), `type` (= OrderCreated), entrega persistente.
+- Headers: `EventType: OrderCreated`, `CorrelationId: <OrderId>`, `traceparent`.
+- Corpo: envelope JSON com `messageId`, `eventType`, `correlationId`, `occurredAt` e `data`.
+
+### Confiabilidade
+
+| Problema | Como é tratado |
+|---|---|
+| RabbitMQ fora do ar ao criar pedido | **Outbox Pattern**: o evento fica no banco e é publicado quando o broker voltar |
+| Broker não recebeu a mensagem | **Publisher confirms**: só marca como enviada após confirmação do RabbitMQ |
+| Mensagem entregue duas vezes | **Consumidor idempotente** (3 camadas: tabela de mensagens processadas, regra de domínio e índice único no histórico) |
+| Erro temporário no processamento | `nack` com requeue: nova tentativa |
+| Mensagem que sempre falha | Fila **quorum** com `x-delivery-limit`: após 5 entregas vai para a **DLQ** `orders.order-created.dlq` |
+| JSON inválido / pedido inexistente | Vai direto para a DLQ (tentar de novo não resolveria) |
+| Vários workers em paralelo | `FOR UPDATE SKIP LOCKED` no outbox; índice único impede transição duplicada |
 
 ## Health checks
 

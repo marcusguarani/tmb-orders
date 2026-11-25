@@ -37,6 +37,9 @@ public static class DependencyInjection
 
         services.AddSingleton<RabbitMqConnectionProvider>();
 
+        // Relógio injetável: permite controlar o tempo nos testes.
+        services.AddSingleton(TimeProvider.System);
+
         services.AddHealthChecks()
             .AddDbContextCheck<OrdersDbContext>("postgres", HealthStatus.Unhealthy, ["ready", "db"])
             .AddCheck<RabbitMqHealthCheck>("rabbitmq", HealthStatus.Unhealthy, ["ready", "messaging"]);

@@ -23,4 +23,16 @@ public sealed class RabbitMqOptions
 
     /// <summary>Fila consumida pelo worker.</summary>
     public string OrderCreatedQueue { get; set; } = "orders.order-created";
+
+    /// <summary>Quantas mensagens o consumidor pode receber sem ainda ter confirmado (ack).</summary>
+    public ushort PrefetchCount { get; set; } = 20;
+
+    /// <summary>Quantas mensagens o worker processa em paralelo.</summary>
+    public ushort ConsumerConcurrency { get; set; } = 5;
+
+    /// <summary>
+    /// Após esse número de entregas sem sucesso, o RabbitMQ move a mensagem
+    /// para a fila de mensagens mortas (DLQ).
+    /// </summary>
+    public int MaxDeliveryAttempts { get; set; } = 5;
 }
