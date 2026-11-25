@@ -1,0 +1,12 @@
+{
+  "messageId": "01938b2a-7c00-7000-8000-0000000000aa",
+  "eventType": "OrderStatusChanged",
+  "correlationId": "01938b2a-7c00-7000-8000-000000000001",
+  "occurredAt": "2026-11-25T12:00:06Z",
+  "data": {
+    "orderId": "01938b2a-7c00-7000-8000-000000000001",
+    "previousStatus": "Processando",
+    "status": "Finalizado",
+    "changedAt": "2026-11-25T12:00:06Z"
+  }
+}

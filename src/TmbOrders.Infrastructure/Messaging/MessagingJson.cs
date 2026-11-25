@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace TmbOrders.Infrastructure.Messaging;
@@ -8,5 +9,10 @@ namespace TmbOrders.Infrastructure.Messaging;
 /// </summary>
 public static class MessagingJson
 {
-    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
+    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
+    {
+        // Mantém acentos legíveis ("João" em vez de "João"), inclusive no painel do RabbitMQ.
+        // As mensagens nunca são embutidas em HTML, então não há risco de XSS com esse encoder.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 }

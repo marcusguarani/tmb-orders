@@ -1,0 +1,11 @@
+{
+  "cliente": [
+    "O cliente é obrigatório."
+  ],
+  "produto": [
+    "O produto é obrigatório."
+  ],
+  "valor": [
+    "O valor deve ser maior que zero."
+  ]
+}

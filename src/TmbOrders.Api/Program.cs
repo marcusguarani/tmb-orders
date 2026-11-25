@@ -1,6 +1,4 @@
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using TmbOrders.Api;
 using TmbOrders.Api.Orders;
 using TmbOrders.Api.Realtime;
 using TmbOrders.Infrastructure;
@@ -15,13 +13,7 @@ builder.AddServiceDefaults();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // JSON da API: snake_case (data_criacao...) e enums como texto ("Pendente").
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-    options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.SnakeCaseLower;
-    options.SerializerOptions.Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
-});
+builder.Services.ConfigureHttpJsonOptions(options => ApiJsonOptions.Configure(options.SerializerOptions));
 
 // Erros padronizados no formato ProblemDetails (RFC 9457).
 builder.Services.AddProblemDetails();
@@ -40,11 +32,7 @@ builder.Services.AddOpenApi();
 
 // Tempo real: hub SignalR + listener que recebe as mudanças de status do worker via RabbitMQ.
 builder.Services.AddSignalR()
-    .AddJsonProtocol(options =>
-    {
-        options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-        options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+    .AddJsonProtocol(options => ApiJsonOptions.Configure(options.PayloadSerializerOptions));
 builder.Services.AddSingleton<OrderNotifier>();
 builder.Services.AddHostedService<OrderStatusNotificationListener>();
 

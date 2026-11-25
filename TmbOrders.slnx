@@ -6,6 +6,10 @@
     <Project Path="src/TmbOrders.Api/TmbOrders.Api.csproj" />
     <Project Path="src/TmbOrders.Worker/TmbOrders.Worker.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TmbOrders.UnitTests/TmbOrders.UnitTests.csproj" />
+    <Project Path="tests/TmbOrders.IntegrationTests/TmbOrders.IntegrationTests.csproj" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />

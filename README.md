@@ -4,7 +4,7 @@ Sistema de gestão de pedidos com **processamento assíncrono via mensageria**.
 Ao criar um pedido, a API grava no PostgreSQL e publica o evento `OrderCreated`.
 Um worker consome o evento e avança o status do pedido: **Pendente → Processando → Finalizado**.
 
-> 🚧 Projeto em construção — Fase 4 (tempo real com SignalR + fallback) concluída.
+> 🚧 Projeto em construção — Fase 5 (testes automatizados e CI) concluída.
 
 ## Arquitetura
 
@@ -41,6 +41,9 @@ src/
 ├── TmbOrders.Api              # API REST
 └── TmbOrders.Worker           # Publicador do outbox + consumidor de eventos
 frontend/                      # React + Vite (servido por Nginx no Docker)
+tests/
+├── TmbOrders.UnitTests        # Domínio, validação e golden tests dos contratos
+└── TmbOrders.IntegrationTests # API + Worker reais com PostgreSQL e RabbitMQ em Testcontainers
 infra/
 └── pgadmin/servers.json       # Servidor do Postgres já cadastrado no pgAdmin
 ```
@@ -205,6 +208,46 @@ cd frontend
 npm install
 npm run dev        # http://localhost:5173 (a API precisa estar em http://localhost:5080)
 ```
+
+## Testes automatizados
+
+```bash
+dotnet test TmbOrders.slnx
+```
+
+Requer apenas o **Docker em execução** (os testes de integração criam os próprios containers).
+
+| Projeto | O que cobre |
+|---|---|
+| **UnitTests / Domain** | Regras do pedido: criação, sequência obrigatória Pendente → Processando → Finalizado, transição repetida ignorada (idempotência), pular etapa gera erro |
+| **UnitTests / Api** | Validação do POST /orders e contratos de mensageria (routing keys, eventos obrigatórios) |
+| **UnitTests / Golden** | **Golden tests** dos contratos JSON: respostas da API, mensagens do RabbitMQ e eventos do SignalR |
+| **IntegrationTests** | **Dependências reais em ambiente isolado e descartável** (Testcontainers): PostgreSQL e RabbitMQ sobem em containers, a API e o Worker reais rodam em memória (`WebApplicationFactory`) |
+
+Cenários de integração:
+
+- POST cria o pedido, o histórico e a mensagem de outbox **na mesma transação**, com `CorrelationId = OrderId` e `EventType = OrderCreated`.
+- Validação retorna 400 com erros por campo; pedido inexistente retorna 404; health check reporta banco e mensageria.
+- **Fluxo completo de ponta a ponta:** API → outbox → RabbitMQ → Worker → Finalizado, com histórico na ordem correta.
+- **Idempotência:** a mesma mensagem entregue duas vezes é processada uma única vez.
+- **Concorrência:** duas instâncias processando a mesma mensagem ao mesmo tempo, e só uma efetiva a mudança.
+
+### Golden tests
+
+Os arquivos `tests/TmbOrders.UnitTests/Golden/*.golden.json` são a "fotografia" oficial dos contratos JSON.
+Se alguém alterar um contrato sem querer (renomear um campo, mudar o formato de uma data), o teste falha e
+mostra a diferença. Quando a mudança for intencional:
+
+```bash
+UPDATE_GOLDEN=1 dotnet test tests/TmbOrders.UnitTests     # PowerShell: $env:UPDATE_GOLDEN=1; dotnet test ...
+```
+
+O diff dos arquivos golden aparece no Git, e toda mudança de contrato fica explícita no code review.
+
+### Integração contínua
+
+O workflow `.github/workflows/ci.yml` roda a cada push: build e testes do backend (incluindo os
+Testcontainers, já que o Docker está disponível no runner do GitHub) e typecheck e build do frontend.
 
 ## Desenvolvimento
 

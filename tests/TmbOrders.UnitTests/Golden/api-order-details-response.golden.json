@@ -1,0 +1,23 @@
+{
+  "id": "01938b2a-7c00-7000-8000-000000000001",
+  "cliente": "João da Silva",
+  "produto": "Notebook Dell Inspiron 15",
+  "valor": 4599.90,
+  "status": "Finalizado",
+  "data_criacao": "2026-11-25T12:00:00Z",
+  "data_atualizacao": "2026-11-25T12:00:06Z",
+  "historico": [
+    {
+      "status": "Pendente",
+      "data": "2026-11-25T12:00:00Z"
+    },
+    {
+      "status": "Processando",
+      "data": "2026-11-25T12:00:01Z"
+    },
+    {
+      "status": "Finalizado",
+      "data": "2026-11-25T12:00:06Z"
+    }
+  ]
+}

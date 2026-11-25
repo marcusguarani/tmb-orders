@@ -1,0 +1,14 @@
+{
+  "messageId": "01938b2a-7c00-7000-8000-0000000000aa",
+  "eventType": "OrderCreated",
+  "correlationId": "01938b2a-7c00-7000-8000-000000000001",
+  "occurredAt": "2026-11-25T12:00:00Z",
+  "data": {
+    "orderId": "01938b2a-7c00-7000-8000-000000000001",
+    "cliente": "João da Silva",
+    "produto": "Notebook Dell Inspiron 15",
+    "valor": 4599.90,
+    "status": "Pendente",
+    "dataCriacao": "2026-11-25T12:00:00Z"
+  }
+}
