@@ -84,6 +84,10 @@ export function NewOrderDialog() {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-zinc-950/50 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
         <Dialog.Content
+          // O modal só fecha pelo "X" ou por "Cancelar": clicar fora ou apertar Esc
+          // não pode descartar o que o usuário já digitou.
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
           className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl data-[state=open]:animate-scale-in dark:border-zinc-800 dark:bg-zinc-900"
         >
           <div className="flex items-start justify-between gap-4">
