@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "TMB Orders (PostgreSQL)",
+      "Group": "TMB",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "tmb_orders",
+      "Username": "tmb",
+      "SSLMode": "prefer"
+    }
+  }
+}

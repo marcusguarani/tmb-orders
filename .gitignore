@@ -1,0 +1,23 @@
+# Segredos
+.env
+*.env.local
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+*.trx
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TmbOrders.Domain/TmbOrders.Domain.csproj" />
+    <Project Path="src/TmbOrders.Infrastructure/TmbOrders.Infrastructure.csproj" />
+    <Project Path="src/TmbOrders.ServiceDefaults/TmbOrders.ServiceDefaults.csproj" />
+    <Project Path="src/TmbOrders.Api/TmbOrders.Api.csproj" />
+    <Project Path="src/TmbOrders.Worker/TmbOrders.Worker.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="docker-compose.yml" />
+    <File Path=".env.example" />
+    <File Path="README.md" />
+  </Folder>
+</Solution>
