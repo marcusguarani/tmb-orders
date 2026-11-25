@@ -86,7 +86,7 @@ public sealed class OrderStatusNotificationListener(
             cancellationToken: stoppingToken);
 
         var consumer = new AsyncEventingBasicConsumer(channel);
-        consumer.ReceivedAsync += (_, delivery) => HandleAsync(delivery, stoppingToken);
+        consumer.ReceivedAsync += (_, delivery) => HandleAsync(queue.QueueName, delivery, stoppingToken);
 
         // autoAck: notificações são efêmeras; se uma se perder, o frontend se recupera via polling.
         await channel.BasicConsumeAsync(queue.QueueName, autoAck: true, consumer: consumer, cancellationToken: stoppingToken);
@@ -94,8 +94,11 @@ public sealed class OrderStatusNotificationListener(
         logger.LogInformation("Escutando mudanças de status para notificação em tempo real (fila {Queue}).", queue.QueueName);
     }
 
-    private async Task HandleAsync(BasicDeliverEventArgs delivery, CancellationToken cancellationToken)
+    private async Task HandleAsync(string queueName, BasicDeliverEventArgs delivery, CancellationToken cancellationToken)
     {
+        // Continua o trace do pedido: a notificação em tempo real aparece no mesmo trace do Jaeger.
+        using var activity = MessagingTelemetry.StartProcess(queueName, delivery.BasicProperties);
+
         try
         {
             var envelope = JsonSerializer.Deserialize<MessageEnvelope<OrderStatusChangedEvent>>(
@@ -116,6 +119,7 @@ public sealed class OrderStatusNotificationListener(
         }
         catch (JsonException ex)
         {
+            MessagingTelemetry.RecordError(activity, ex);
             logger.LogWarning(ex, "Notificação com JSON inválido ignorada.");
         }
     }

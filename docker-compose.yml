@@ -11,6 +11,8 @@ x-dotnet-env: &dotnet-env
   RabbitMq__Port: "5672"
   RabbitMq__UserName: ${RABBITMQ_USER:-tmb}
   RabbitMq__Password: ${RABBITMQ_PASSWORD:?Defina RABBITMQ_PASSWORD no .env}
+  # Tracing (OpenTelemetry → Jaeger via OTLP/gRPC)
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
 
 services:
   postgres:
@@ -69,6 +71,14 @@ services:
       retries: 10
       start_period: 20s
 
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    container_name: tmb-jaeger
+    restart: unless-stopped
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"   # interface web do Jaeger
+      - "${JAEGER_OTLP_PORT:-4317}:4317"   # OTLP gRPC (recebe os traces)
+
   api:
     build:
       context: .
@@ -77,6 +87,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *dotnet-env
+      OTEL_SERVICE_NAME: tmb-api
     ports:
       - "${API_PORT:-5080}:8080"
     depends_on:
@@ -84,6 +95,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      jaeger:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/ready"]
       interval: 10s
@@ -99,6 +112,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *dotnet-env
+      OTEL_SERVICE_NAME: tmb-worker
     ports:
       - "${WORKER_PORT:-5081}:8080"
     depends_on:

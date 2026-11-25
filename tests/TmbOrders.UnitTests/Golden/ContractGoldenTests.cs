@@ -22,6 +22,7 @@ public sealed class ContractGoldenTests
     private static readonly DateTime CreatedAt = new(2026, 11, 25, 12, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime ProcessingAt = CreatedAt.AddSeconds(1);
     private static readonly DateTime FinishedAt = CreatedAt.AddSeconds(6);
+    private const string TraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
 
     private static readonly JsonSerializerOptions ApiJson = Indented(ApiJsonOptions.Create());
     private static readonly JsonSerializerOptions MessageJson = Indented(MessagingJson.Options);
@@ -49,7 +50,8 @@ public sealed class ContractGoldenTests
                 new OrderStatusHistoryResponse(OrderStatus.Pendente, CreatedAt),
                 new OrderStatusHistoryResponse(OrderStatus.Processando, ProcessingAt),
                 new OrderStatusHistoryResponse(OrderStatus.Finalizado, FinishedAt)
-            ]);
+            ],
+            TraceId);
 
         GoldenFile.AssertMatches("api-order-details-response", JsonSerializer.Serialize(response, ApiJson));
     }

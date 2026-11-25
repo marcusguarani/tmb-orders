@@ -37,9 +37,10 @@ public sealed record OrderDetailsResponse(
     OrderStatus Status,
     DateTime DataCriacao,
     DateTime? DataAtualizacao,
-    IReadOnlyList<OrderStatusHistoryResponse> Historico)
+    IReadOnlyList<OrderStatusHistoryResponse> Historico,
+    string? TraceId)
 {
-    public static OrderDetailsResponse From(Order order) => new(
+    public static OrderDetailsResponse From(Order order, string? traceId) => new(
         order.Id,
         order.Customer,
         order.Product,
@@ -51,5 +52,6 @@ public sealed record OrderDetailsResponse(
             .OrderBy(h => h.ChangedAt)
             .ThenBy(h => h.Status)
             .Select(h => new OrderStatusHistoryResponse(h.Status, h.ChangedAt))
-            .ToList());
+            .ToList(),
+        traceId);
 }

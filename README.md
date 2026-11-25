@@ -4,7 +4,7 @@ Sistema de gestão de pedidos com **processamento assíncrono via mensageria**.
 Ao criar um pedido, a API grava no PostgreSQL e publica o evento `OrderCreated`.
 Um worker consome o evento e avança o status do pedido: **Pendente → Processando → Finalizado**.
 
-> 🚧 Projeto em construção — Fase 5 (testes automatizados e CI) concluída.
+> 🚧 Projeto em construção — Fase 6 (tracing ponta a ponta com OpenTelemetry + Jaeger) concluída.
 
 ## Arquitetura
 
@@ -29,6 +29,7 @@ flowchart LR
 | Mensageria | RabbitMQ 4 (com painel de administração) |
 | Administração do banco | pgAdmin 4 |
 | Frontend | React 19 + Vite + TypeScript, Tailwind CSS 4, TanStack Query, Radix UI |
+| Observabilidade | OpenTelemetry (traces) + Jaeger v2 |
 | Infraestrutura | Docker Compose + Nginx (serve o frontend e faz proxy para a API) |
 
 ## Estrutura da solução
@@ -67,6 +68,7 @@ docker compose up -d --build
 | Health da API | http://localhost:5080/health |
 | Worker (health) | http://localhost:5081/health |
 | RabbitMQ (painel) | http://localhost:15672 |
+| Jaeger (traces) | http://localhost:16686 |
 | pgAdmin | http://localhost:5050 |
 
 Logins usam os valores definidos no `.env`.
@@ -165,6 +167,41 @@ flowchart LR
 Para ver o fallback funcionando: com a tela aberta, rode `docker compose restart api` e observe o indicador
 no canto superior direito.
 
+## Tracing ponta a ponta (OpenTelemetry + Jaeger)
+
+Cada pedido gera **um único trace** que atravessa todos os serviços e a fila:
+
+```
+tmb-api     POST /orders
+tmb-api       └ INSERT pedidos + histórico + outbox          (Npgsql)
+tmb-worker      └ order.created publish                      (Producer)
+tmb-worker        └ orders.order-created process             (Consumer)
+tmb-worker          ├ UPDATE status = Processando             (Npgsql)
+tmb-worker          ├ order.status-changed publish            (Producer)
+tmb-api             │  └ amq.gen-… process → SignalR          (Consumer)
+tmb-worker          ├ UPDATE status = Finalizado              (Npgsql)
+tmb-worker          └ order.status-changed publish            (Producer)
+tmb-api                └ amq.gen-… process → SignalR          (Consumer)
+```
+
+Como o contexto do trace sobrevive à passagem pela fila (HTTP → banco → RabbitMQ → outro processo):
+
+1. A API grava o `traceparent` da requisição **junto com a mensagem no outbox**.
+2. O publicador abre um span `publish` (Producer) como filho desse contexto e envia o header W3C
+   `traceparent` na mensagem AMQP.
+3. O consumidor lê o header e abre o span `process` (Consumer) como filho. Tudo o que ele faz
+   (consultas, novos eventos no outbox) herda o mesmo trace.
+
+Detalhes de implementação:
+
+- Instrumentação: ASP.NET Core (requisições), Npgsql (comandos SQL) e spans próprios de mensageria
+  seguindo as convenções semânticas do OpenTelemetry (`messaging.system`, `messaging.message.id`,
+  `messaging.message.conversation_id` etc.).
+- Um *sampler* customizado descarta consultas que não pertencem a nenhum trace (polling do outbox e
+  health checks), evitando milhares de traces irrelevantes.
+- O `trace_id` da criação fica gravado no pedido, e a tela de detalhes tem um **link direto para o trace no Jaeger**.
+- Os logs incluem `TraceId`/`SpanId`, então dá para ir de uma linha de log ao trace correspondente.
+
 ## Health checks
 
 | Endpoint | O que verifica |
@@ -194,7 +231,7 @@ respeita `depends_on: condition: service_healthy`.
 - **Dashboard** com total de pedidos, pendentes, em processamento, finalizados e valor finalizado.
 - **Tabela responsiva** (vira lista de cartões no celular), com filtro por status e busca.
 - **Criação de pedido** em modal, com máscara de valor em R$ e erros da API exibidos por campo.
-- **Detalhes do pedido** com linha do tempo do histórico de status e tempo entre etapas.
+- **Detalhes do pedido** com linha do tempo do histórico de status, tempo entre etapas e link para o trace no Jaeger.
 - **Feedback visual de status:** badge animado em "Processando", linha destacada quando o status muda
   e notificação (toast) ao entrar em processamento e ao finalizar.
 - **Atualização em tempo real (SignalR)**, com fallback automático para polling (ver seção abaixo).

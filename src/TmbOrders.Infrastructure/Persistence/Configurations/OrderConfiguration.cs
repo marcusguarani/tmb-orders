@@ -41,6 +41,12 @@ internal sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.CreatedAt).HasColumnName("data_criacao");
         builder.Property(o => o.UpdatedAt).HasColumnName("data_atualizacao");
 
+        // Id do trace (OpenTelemetry) da requisição que criou o pedido.
+        // "Shadow property": dado técnico de observabilidade, fica fora da entidade de domínio.
+        builder.Property<string?>(OrderShadowProperties.TraceId)
+            .HasColumnName("trace_id")
+            .HasMaxLength(32);
+
         builder.HasMany(o => o.StatusHistory)
             .WithOne()
             .HasForeignKey(h => h.OrderId)

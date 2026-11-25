@@ -21,6 +21,8 @@ export interface OrderStatusHistoryEntry {
 
 export interface OrderDetails extends Order {
   historico: OrderStatusHistoryEntry[]
+  /** Id do trace (OpenTelemetry) da criação do pedido, para abrir no Jaeger. */
+  trace_id: string | null
 }
 
 export interface CreateOrderInput {

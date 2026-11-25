@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using TmbOrders.Api.Realtime;
@@ -54,6 +55,12 @@ public static class OrderEndpoints
             order.CreatedAt);
 
         db.Orders.Add(order);
+
+        // Guarda o trace desta requisição: a tela de detalhes oferece um link direto para o Jaeger.
+        var activity = Activity.Current;
+        activity?.SetTag("tmb.order_id", order.Id.ToString());
+        db.Entry(order).Property(OrderShadowProperties.TraceId).CurrentValue = activity?.TraceId.ToHexString();
+
         db.OutboxMessages.Add(OutboxMessageFactory.Create(EventTypes.OrderCreated, order.Id, orderCreated, now));
 
         // Um único SaveChanges = uma única transação: pedido + histórico + outbox.
@@ -104,6 +111,11 @@ public static class OrderEndpoints
                 detail: $"Não existe pedido com o id {id}.");
         }
 
-        return TypedResults.Ok(OrderDetailsResponse.From(order));
+        var traceId = await db.Orders
+            .Where(o => o.Id == id)
+            .Select(o => EF.Property<string?>(o, OrderShadowProperties.TraceId))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return TypedResults.Ok(OrderDetailsResponse.From(order, traceId));
     }
 }

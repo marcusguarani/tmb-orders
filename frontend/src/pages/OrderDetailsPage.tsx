@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Copy } from 'lucide-react'
+import { ArrowLeft, Check, Copy, ExternalLink } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -44,6 +44,24 @@ function CopyId({ id }: { id: string }) {
       <span className="truncate">{id}</span>
       {copied ? <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 shrink-0" />}
     </button>
+  )
+}
+
+const JAEGER_URL = (import.meta.env.VITE_JAEGER_URL as string | undefined) ?? 'http://localhost:16686'
+
+/** Link para o trace distribuído do pedido no Jaeger (API → RabbitMQ → Worker → SignalR). */
+function TraceLink({ traceId }: { traceId: string }) {
+  return (
+    <a
+      href={`${JAEGER_URL}/trace/${traceId}`}
+      target="_blank"
+      rel="noreferrer"
+      title="Abrir o trace completo no Jaeger"
+      className="inline-flex max-w-full items-center gap-1.5 rounded font-mono text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+    >
+      <span className="truncate">{traceId}</span>
+      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+    </a>
   )
 }
 
@@ -126,6 +144,9 @@ export function OrderDetailsPage() {
               </InfoRow>
             )}
             <InfoRow label="Id (CorrelationId)"><CopyId id={order.id} /></InfoRow>
+            {order.trace_id && (
+              <InfoRow label="Trace (Jaeger)"><TraceLink traceId={order.trace_id} /></InfoRow>
+            )}
           </dl>
         </Card>
 

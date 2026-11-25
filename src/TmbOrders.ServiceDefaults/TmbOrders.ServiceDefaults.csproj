@@ -1,9 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Configurações compartilhadas entre API e Worker: health checks, (futuramente) OpenTelemetry. -->
+  <!-- Configurações compartilhadas entre API e Worker: health checks e observabilidade (OpenTelemetry). -->
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="Npgsql.OpenTelemetry" />
   </ItemGroup>
 
 </Project>

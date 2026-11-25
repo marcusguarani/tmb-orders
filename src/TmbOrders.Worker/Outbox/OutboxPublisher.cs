@@ -122,6 +122,13 @@ public sealed class OutboxPublisher(
 
     private async Task PublishAsync(IChannel channel, OutboxMessage message, CancellationToken cancellationToken)
     {
+        var exchange = rabbitOptions.Value.Exchange;
+        var routingKey = EventTypes.RoutingKeyFor(message.EventType);
+
+        // Span "publish" continua o trace de quem gravou o evento (ex.: a requisição POST /orders).
+        using var activity = MessagingTelemetry.StartPublish(
+            message.EventType, exchange, routingKey, message.Id, message.CorrelationId, message.TraceParent);
+
         var occurredAtUtc = DateTime.SpecifyKind(message.OccurredAt, DateTimeKind.Utc);
 
         // Requisito do desafio: CorrelationId = OrderId e EventType = OrderCreated.
@@ -131,8 +138,10 @@ public sealed class OutboxPublisher(
             ["CorrelationId"] = message.CorrelationId.ToString()
         };
 
-        if (!string.IsNullOrEmpty(message.TraceParent))
-            headers["traceparent"] = message.TraceParent;
+        // Propaga o contexto do trace para o consumidor (padrão W3C Trace Context).
+        var traceParent = activity?.Id ?? message.TraceParent;
+        if (!string.IsNullOrEmpty(traceParent))
+            headers[MessagingTelemetry.TraceParentHeader] = traceParent;
 
         var properties = new BasicProperties
         {
@@ -146,15 +155,23 @@ public sealed class OutboxPublisher(
             Headers = headers
         };
 
-        // Com "publisher confirms" ativado, este await só termina quando o
-        // RabbitMQ confirma que recebeu e gravou a mensagem (ou lança exceção).
-        await channel.BasicPublishAsync(
-            exchange: rabbitOptions.Value.Exchange,
-            routingKey: EventTypes.RoutingKeyFor(message.EventType),
-            mandatory: EventTypes.IsMandatory(message.EventType),
-            basicProperties: properties,
-            body: Encoding.UTF8.GetBytes(message.Payload),
-            cancellationToken: cancellationToken);
+        try
+        {
+            // Com "publisher confirms" ativado, este await só termina quando o
+            // RabbitMQ confirma que recebeu e gravou a mensagem (ou lança exceção).
+            await channel.BasicPublishAsync(
+                exchange: exchange,
+                routingKey: routingKey,
+                mandatory: EventTypes.IsMandatory(message.EventType),
+                basicProperties: properties,
+                body: Encoding.UTF8.GetBytes(message.Payload),
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            MessagingTelemetry.RecordError(activity, ex);
+            throw;
+        }
     }
 
     private async Task<IChannel> GetChannelAsync(CancellationToken cancellationToken)

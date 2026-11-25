@@ -91,6 +91,9 @@ public sealed class OrderCreatedConsumer(
 
     private async Task HandleDeliveryAsync(IChannel channel, BasicDeliverEventArgs delivery, CancellationToken stoppingToken)
     {
+        // Continua o trace iniciado na API (header "traceparent" da mensagem).
+        using var activity = MessagingTelemetry.StartProcess(rabbitOptions.Value.OrderCreatedQueue, delivery.BasicProperties);
+
         MessageEnvelope<OrderCreatedEvent>? envelope;
 
         try
@@ -99,6 +102,7 @@ public sealed class OrderCreatedConsumer(
         }
         catch (JsonException ex)
         {
+            MessagingTelemetry.RecordError(activity, ex);
             logger.LogError(ex, "Mensagem com JSON inválido (MessageId {MessageId}). Enviando para a DLQ.",
                 delivery.BasicProperties.MessageId);
             await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, stoppingToken);
@@ -130,6 +134,7 @@ public sealed class OrderCreatedConsumer(
         }
         catch (OrderNotFoundException ex)
         {
+            MessagingTelemetry.RecordError(activity, ex);
             logger.LogError(ex, "Pedido {OrderId} não existe. Enviando mensagem para a DLQ.", ex.OrderId);
             await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, stoppingToken);
         }
@@ -140,6 +145,7 @@ public sealed class OrderCreatedConsumer(
         }
         catch (Exception ex)
         {
+            MessagingTelemetry.RecordError(activity, ex);
             logger.LogError(ex, "Erro ao processar o pedido {OrderId}. A mensagem será reentregue.", envelope.CorrelationId);
             await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: true, CancellationToken.None);
         }
