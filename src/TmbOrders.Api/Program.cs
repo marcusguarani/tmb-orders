@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using TmbOrders.Api.Orders;
+using TmbOrders.Api.Realtime;
 using TmbOrders.Infrastructure;
 using TmbOrders.Infrastructure.Persistence;
 using TmbOrders.ServiceDefaults;
@@ -37,6 +38,16 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddOpenApi();
 
+// Tempo real: hub SignalR + listener que recebe as mudanças de status do worker via RabbitMQ.
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+        options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+builder.Services.AddSingleton<OrderNotifier>();
+builder.Services.AddHostedService<OrderStatusNotificationListener>();
+
 var app = builder.Build();
 
 // Migrations automáticas: o banco é criado/atualizado na subida da API.
@@ -49,11 +60,13 @@ app.UseCors(FrontendCorsPolicy);
 app.MapOpenApi();
 app.MapDefaultEndpoints();
 app.MapOrderEndpoints();
+app.MapHub<OrdersHub>(OrdersHub.Route);
 
 app.MapGet("/", () => Results.Ok(new
 {
     service = "TMB Orders API",
     orders = "/orders",
+    realtime = OrdersHub.Route,
     health = "/health",
     openApi = "/openapi/v1.json"
 }))

@@ -23,6 +23,7 @@ public sealed class OutboxPublisher(
     RabbitMqConnectionProvider connectionProvider,
     IOptions<RabbitMqOptions> rabbitOptions,
     IOptions<WorkerOptions> workerOptions,
+    OutboxSignal outboxSignal,
     TimeProvider timeProvider,
     ILogger<OutboxPublisher> logger) : BackgroundService
 {
@@ -31,13 +32,12 @@ public sealed class OutboxPublisher(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromMilliseconds(workerOptions.Value.OutboxPollingIntervalMs);
-        using var timer = new PeriodicTimer(interval, timeProvider);
 
         logger.LogInformation("Publicador do outbox iniciado (intervalo de {Interval} ms).", interval.TotalMilliseconds);
 
         try
         {
-            do
+            while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
@@ -50,8 +50,10 @@ public sealed class OutboxPublisher(
                     logger.LogError(ex, "Falha ao publicar mensagens do outbox. Nova tentativa no próximo ciclo.");
                     await ResetChannelAsync();
                 }
+
+                // Próximo ciclo: no intervalo configurado, ou antes, se o worker avisar que gravou um evento.
+                await outboxSignal.WaitAsync(interval, stoppingToken);
             }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -149,7 +151,7 @@ public sealed class OutboxPublisher(
         await channel.BasicPublishAsync(
             exchange: rabbitOptions.Value.Exchange,
             routingKey: EventTypes.RoutingKeyFor(message.EventType),
-            mandatory: true,
+            mandatory: EventTypes.IsMandatory(message.EventType),
             basicProperties: properties,
             body: Encoding.UTF8.GetBytes(message.Payload),
             cancellationToken: cancellationToken);

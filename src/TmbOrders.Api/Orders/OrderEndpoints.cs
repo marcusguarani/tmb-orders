@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using TmbOrders.Api.Realtime;
 using TmbOrders.Domain.Orders;
 using TmbOrders.Infrastructure.Messaging.Contracts;
 using TmbOrders.Infrastructure.Outbox;
@@ -34,6 +35,7 @@ public static class OrderEndpoints
         CreateOrderRequest request,
         OrdersDbContext db,
         TimeProvider timeProvider,
+        OrderNotifier notifier,
         CancellationToken cancellationToken)
     {
         var errors = CreateOrderRequestValidator.Validate(request);
@@ -58,7 +60,12 @@ public static class OrderEndpoints
         // Ou tudo é gravado, ou nada é. O evento nunca se perde, nem é publicado sem o pedido existir.
         await db.SaveChangesAsync(cancellationToken);
 
-        return TypedResults.Created($"/orders/{order.Id}", OrderResponse.From(order));
+        var response = OrderResponse.From(order);
+
+        // Avisa as outras telas abertas que um pedido novo chegou (tempo real, melhor esforço).
+        await notifier.OrderCreatedAsync(response, cancellationToken);
+
+        return TypedResults.Created($"/orders/{order.Id}", response);
     }
 
     private static async Task<Ok<List<OrderResponse>>> ListAsync(

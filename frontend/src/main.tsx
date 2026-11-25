@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from '@/App'
+import { RealtimeProvider } from '@/hooks/useRealtime'
 import { ThemeProvider } from '@/hooks/useTheme'
 import '@/index.css'
 
@@ -18,7 +19,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <RealtimeProvider>
+          <App />
+        </RealtimeProvider>
       </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>,

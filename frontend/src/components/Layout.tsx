@@ -1,9 +1,8 @@
-import { useIsFetching } from '@tanstack/react-query'
 import { Moon, Sun } from 'lucide-react'
 import { Link, Outlet } from 'react-router'
+import { RealtimeIndicator } from '@/components/RealtimeIndicator'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/hooks/useTheme'
-import { cn } from '@/lib/utils'
 
 function Logo() {
   return (
@@ -17,7 +16,6 @@ function Logo() {
 
 export function Layout() {
   const { theme, toggle } = useTheme()
-  const fetching = useIsFetching() > 0
 
   return (
     <div className="min-h-dvh">
@@ -32,16 +30,7 @@ export function Layout() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <span
-              className="flex items-center gap-2 rounded-full px-2.5 py-1 text-xs text-zinc-500 dark:text-zinc-400"
-              title="Os dados são atualizados automaticamente"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className={cn('absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75', fetching && 'animate-ping')} />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="hidden sm:inline">Atualização automática</span>
-            </span>
+            <RealtimeIndicator />
 
             <Button
               variant="ghost"

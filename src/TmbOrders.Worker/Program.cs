@@ -17,6 +17,7 @@ builder.Services.AddOptions<WorkerOptions>()
     .Validate(o => o.OutboxBatchSize > 0, "Worker:OutboxBatchSize deve ser maior que zero.")
     .ValidateOnStart();
 
+builder.Services.AddSingleton<OutboxSignal>();
 builder.Services.AddScoped<OrderProcessor>();
 
 // 1) Lê o outbox e publica no RabbitMQ.

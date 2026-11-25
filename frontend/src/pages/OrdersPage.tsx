@@ -45,7 +45,7 @@ export function OrdersPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Crie pedidos e acompanhe o processamento assíncrono em tempo real.
+            Crie pedidos e acompanhe o processamento assíncrono em tempo real (SignalR, com polling como fallback).
           </p>
         </div>
         <NewOrderDialog />

@@ -4,7 +4,7 @@ Sistema de gestão de pedidos com **processamento assíncrono via mensageria**.
 Ao criar um pedido, a API grava no PostgreSQL e publica o evento `OrderCreated`.
 Um worker consome o evento e avança o status do pedido: **Pendente → Processando → Finalizado**.
 
-> 🚧 Projeto em construção — Fase 3 (frontend) concluída.
+> 🚧 Projeto em construção — Fase 4 (tempo real com SignalR + fallback) concluída.
 
 ## Arquitetura
 
@@ -132,6 +132,36 @@ sequenceDiagram
 | JSON inválido / pedido inexistente | Vai direto para a DLQ (tentar de novo não resolveria) |
 | Vários workers em paralelo | `FOR UPDATE SKIP LOCKED` no outbox; índice único impede transição duplicada |
 
+## Tempo real (SignalR) com fallback
+
+```mermaid
+flowchart LR
+    W[Worker] -->|OrderStatusChanged<br/>via outbox| MQ[[RabbitMQ]]
+    MQ -->|fila exclusiva<br/>por instância| API[API<br/>listener + hub]
+    API -->|SignalR / WebSocket| B[Navegador]
+    B -.->|polling se o<br/>SignalR cair| API
+```
+
+1. A cada mudança de status, o worker grava um evento `OrderStatusChanged` no **outbox, na mesma transação**
+   do status, e "acorda" o publicador na hora (sem esperar o ciclo de 1 s).
+2. A API escuta esses eventos com uma **fila temporária exclusiva por instância**: se houver várias APIs
+   rodando, todas recebem todos os eventos e cada uma avisa os seus clientes conectados.
+3. O hub SignalR (`/hubs/orders`) envia `OrderStatusChanged` e `OrderCreated` ao navegador, que atualiza o
+   cache do TanStack Query na hora: tabela, cartões, linha do tempo e notificações reagem sem nova requisição.
+
+**Fallback:**
+
+| Situação | Comportamento |
+|---|---|
+| SignalR conectado | Eventos por push; polling só de segurança a cada 30 s |
+| Conexão caiu | Indicador "Reconectando..."; reconexão automática (0 s, 2 s, 5 s, 10 s...) e **polling a cada 1,5 s** enquanto isso |
+| SignalR indisponível | Indicador "Modo polling"; tudo continua funcionando por polling e a conexão é tentada de novo a cada 10 s |
+| Reconectou | Recarrega os dados para recuperar eventos perdidos enquanto estava desconectado |
+| WebSocket bloqueado pela rede | O cliente SignalR cai para Server-Sent Events ou long polling |
+
+Para ver o fallback funcionando: com a tela aberta, rode `docker compose restart api` e observe o indicador
+no canto superior direito.
+
 ## Health checks
 
 | Endpoint | O que verifica |
@@ -164,8 +194,7 @@ respeita `depends_on: condition: service_healthy`.
 - **Detalhes do pedido** com linha do tempo do histórico de status e tempo entre etapas.
 - **Feedback visual de status:** badge animado em "Processando", linha destacada quando o status muda
   e notificação (toast) ao entrar em processamento e ao finalizar.
-- **Atualização automática:** polling a cada 1,5 s enquanto houver pedido em andamento, e a cada 10 s quando
-  tudo estiver finalizado.
+- **Atualização em tempo real (SignalR)**, com fallback automático para polling (ver seção abaixo).
 - Tema claro/escuro, estados de carregamento (skeleton), vazio e erro, e acessibilidade (teclado, aria).
 
 No Docker, o Nginx serve o build e redireciona `/api/*` para a API, então o navegador fala com uma única

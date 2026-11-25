@@ -4,7 +4,9 @@ using Npgsql;
 using TmbOrders.Domain.Orders;
 using TmbOrders.Infrastructure.Messaging;
 using TmbOrders.Infrastructure.Messaging.Contracts;
+using TmbOrders.Infrastructure.Outbox;
 using TmbOrders.Infrastructure.Persistence;
+using TmbOrders.Worker.Outbox;
 
 namespace TmbOrders.Worker.Processing;
 
@@ -23,9 +25,13 @@ public enum ProcessingResult
 ///  2. Regra de domínio: Order.TryAdvanceTo ignora transições repetidas.
 ///  3. Índice único (pedido_id, status) no histórico: duas instâncias
 ///     processando a mesma mensagem ao mesmo tempo → só uma grava.
+///
+/// Cada mudança de status também grava um evento OrderStatusChanged no outbox
+/// (mesma transação), usado para atualizar a interface em tempo real.
 /// </summary>
 public sealed class OrderProcessor(
     OrdersDbContext db,
+    OutboxSignal outboxSignal,
     TimeProvider timeProvider,
     IOptions<WorkerOptions> options,
     ILogger<OrderProcessor> logger)
@@ -54,9 +60,10 @@ public sealed class OrderProcessor(
         try
         {
             // Etapa 1: Pendente → Processando
-            if (order.TryAdvanceTo(OrderStatus.Processando, Now()))
+            if (TryAdvance(order, OrderStatus.Processando))
             {
                 await db.SaveChangesAsync(cancellationToken);
+                outboxSignal.Notify();
                 logger.LogInformation("Pedido {OrderId}: Pendente → Processando.", orderId);
             }
 
@@ -69,7 +76,7 @@ public sealed class OrderProcessor(
 
             // Etapa 2: Processando → Finalizado + registro de mensagem processada,
             // no mesmo SaveChanges (mesma transação).
-            var finished = order.TryAdvanceTo(OrderStatus.Finalizado, Now());
+            var finished = TryAdvance(order, OrderStatus.Finalizado);
 
             db.ProcessedMessages.Add(new ProcessedMessage
             {
@@ -81,7 +88,10 @@ public sealed class OrderProcessor(
             await db.SaveChangesAsync(cancellationToken);
 
             if (finished)
+            {
+                outboxSignal.Notify();
                 logger.LogInformation("Pedido {OrderId}: Processando → Finalizado.", orderId);
+            }
 
             return ProcessingResult.Processed;
         }
@@ -91,6 +101,23 @@ public sealed class OrderProcessor(
             logger.LogInformation("Mensagem {MessageId} processada em paralelo por outra instância. Ignorando.", messageId);
             return ProcessingResult.Duplicate;
         }
+    }
+
+    /// <summary>
+    /// Avança o status e, se mudou, registra o evento OrderStatusChanged no outbox.
+    /// O SaveChanges seguinte grava status, histórico e evento juntos.
+    /// </summary>
+    private bool TryAdvance(Order order, OrderStatus next)
+    {
+        var previous = order.Status;
+        var now = Now();
+
+        if (!order.TryAdvanceTo(next, now))
+            return false;
+
+        var statusChanged = new OrderStatusChangedEvent(order.Id, previous.ToString(), next.ToString(), now);
+        db.OutboxMessages.Add(OutboxMessageFactory.Create(EventTypes.OrderStatusChanged, order.Id, statusChanged, now));
+        return true;
     }
 
     private DateTime Now() => timeProvider.GetUtcNow().UtcDateTime;
