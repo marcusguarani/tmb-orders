@@ -4,7 +4,7 @@ Sistema de gestão de pedidos com **processamento assíncrono via mensageria**.
 Ao criar um pedido, a API grava no PostgreSQL e publica o evento `OrderCreated`.
 Um worker consome o evento e avança o status do pedido: **Pendente → Processando → Finalizado**.
 
-> 🚧 Projeto em construção — Fase 2 (API, outbox, mensageria e worker) concluída.
+> 🚧 Projeto em construção — Fase 3 (frontend) concluída.
 
 ## Arquitetura
 
@@ -28,7 +28,8 @@ flowchart LR
 | Banco de dados | PostgreSQL 17 |
 | Mensageria | RabbitMQ 4 (com painel de administração) |
 | Administração do banco | pgAdmin 4 |
-| Infraestrutura | Docker Compose |
+| Frontend | React 19 + Vite + TypeScript, Tailwind CSS 4, TanStack Query, Radix UI |
+| Infraestrutura | Docker Compose + Nginx (serve o frontend e faz proxy para a API) |
 
 ## Estrutura da solução
 
@@ -39,6 +40,7 @@ src/
 ├── TmbOrders.ServiceDefaults  # Configurações comuns (endpoints de health, telemetria)
 ├── TmbOrders.Api              # API REST
 └── TmbOrders.Worker           # Publicador do outbox + consumidor de eventos
+frontend/                      # React + Vite (servido por Nginx no Docker)
 infra/
 └── pgadmin/servers.json       # Servidor do Postgres já cadastrado no pgAdmin
 ```
@@ -57,6 +59,7 @@ docker compose up -d --build
 
 | Serviço | URL |
 |---|---|
+| **Frontend** | **http://localhost:3000** |
 | API | http://localhost:5080 |
 | Health da API | http://localhost:5080/health |
 | Worker (health) | http://localhost:5081/health |
@@ -152,6 +155,27 @@ respeita `depends_on: condition: service_healthy`.
 - **Central Package Management:** versões de todos os pacotes NuGet ficam em `Directory.Packages.props`.
 - **Segredos fora do código:** tudo vem de variáveis de ambiente; o `docker compose` falha com uma mensagem
   clara se uma senha obrigatória não estiver definida no `.env`.
+
+## Frontend
+
+- **Dashboard** com total de pedidos, pendentes, em processamento, finalizados e valor finalizado.
+- **Tabela responsiva** (vira lista de cartões no celular), com filtro por status e busca.
+- **Criação de pedido** em modal, com máscara de valor em R$ e erros da API exibidos por campo.
+- **Detalhes do pedido** com linha do tempo do histórico de status e tempo entre etapas.
+- **Feedback visual de status:** badge animado em "Processando", linha destacada quando o status muda
+  e notificação (toast) ao entrar em processamento e ao finalizar.
+- **Atualização automática:** polling a cada 1,5 s enquanto houver pedido em andamento, e a cada 10 s quando
+  tudo estiver finalizado.
+- Tema claro/escuro, estados de carregamento (skeleton), vazio e erro, e acessibilidade (teclado, aria).
+
+No Docker, o Nginx serve o build e redireciona `/api/*` para a API, então o navegador fala com uma única
+origem (sem CORS). Em desenvolvimento, o Vite faz o mesmo papel:
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (a API precisa estar em http://localhost:5080)
+```
 
 ## Desenvolvimento
 
