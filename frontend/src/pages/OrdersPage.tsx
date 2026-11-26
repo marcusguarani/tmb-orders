@@ -1,7 +1,8 @@
 import { Search, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NewOrderDialog } from '@/components/NewOrderDialog'
 import { OrdersTable } from '@/components/OrdersTable'
+import { Pagination } from '@/components/Pagination'
 import { StatsCards } from '@/components/StatsCards'
 import { EmptyState, ErrorState } from '@/components/StateMessages'
 import { Card } from '@/components/ui/Card'
@@ -13,11 +14,14 @@ import { ORDER_STATUSES, type OrderStatus } from '@/types/order'
 
 type Filter = OrderStatus | 'Todos'
 
+const PAGE_SIZE = 10
+
 export function OrdersPage() {
   const { data: orders, isLoading, isError, error, refetch } = useOrders()
   const highlighted = useStatusChangeNotifier(orders)
   const [filter, setFilter] = useState<Filter>('Todos')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   const counts = useMemo(() => {
     const result: Record<Filter, number> = { Todos: orders?.length ?? 0, Pendente: 0, Processando: 0, Finalizado: 0 }
@@ -38,6 +42,17 @@ export function OrdersPage() {
   }, [orders, filter, search])
 
   const hasOrders = (orders?.length ?? 0) > 0
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+
+  // Ao mudar filtro ou busca, volta para a primeira página.
+  useEffect(() => setPage(1), [filter, search])
+
+  // Se a lista diminuir (ex.: filtro ativo e pedido mudou de status), não deixa a página "sobrar".
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  const pageItems = useMemo(() => visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [visible, page])
 
   return (
     <div className="space-y-6">
@@ -45,7 +60,7 @@ export function OrdersPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Pedidos</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Crie pedidos e acompanhe o processamento assíncrono em tempo real (SignalR, com polling como fallback).
+            Crie pedidos e acompanhe o processamento assíncrono em tempo real.
           </p>
         </div>
         <NewOrderDialog />
@@ -121,13 +136,11 @@ export function OrdersPage() {
         ) : !isLoading && visible.length === 0 ? (
           <EmptyState title="Nenhum pedido encontrado" description="Ajuste o filtro de status ou o termo de busca." />
         ) : (
-          <OrdersTable orders={visible} highlighted={highlighted} isLoading={isLoading} />
+          <OrdersTable orders={pageItems} highlighted={highlighted} isLoading={isLoading} />
         )}
 
-        {!isLoading && hasOrders && (
-          <div className="border-t border-zinc-200 px-4 py-2.5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-            Exibindo {visible.length} de {orders?.length} pedido(s)
-          </div>
+        {!isLoading && !isError && visible.length > 0 && (
+          <Pagination page={page} pageSize={PAGE_SIZE} total={visible.length} onPageChange={setPage} />
         )}
       </Card>
     </div>

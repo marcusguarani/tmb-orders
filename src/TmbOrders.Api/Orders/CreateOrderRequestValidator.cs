@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using TmbOrders.Domain.Orders;
 
 namespace TmbOrders.Api.Orders;
@@ -7,8 +8,15 @@ namespace TmbOrders.Api.Orders;
 /// Retorna erros no formato do ValidationProblemDetails (RFC 9457),
 /// com as chaves iguais aos nomes dos campos do JSON.
 /// </summary>
-public static class CreateOrderRequestValidator
+public static partial class CreateOrderRequestValidator
 {
+    /// <summary>
+    /// Nome do cliente: letras (inclusive acentuadas), espaço, apóstrofo e hífen — ex.: "João", "Ana-Maria", "D'Ávila".
+    /// Números e símbolos não são permitidos. Precisa conter ao menos uma letra.
+    /// </summary>
+    [GeneratedRegex(@"^(?=.*\p{L})[\p{L}\p{M}' \-]+$")]
+    private static partial Regex CustomerNamePattern();
+
     public const decimal MaxAmount = 1_000_000_000m;
 
     public static Dictionary<string, string[]> Validate(CreateOrderRequest request)
@@ -19,6 +27,8 @@ public static class CreateOrderRequestValidator
             errors["cliente"] = ["O cliente é obrigatório."];
         else if (request.Cliente.Trim().Length > Order.CustomerMaxLength)
             errors["cliente"] = [$"O cliente deve ter no máximo {Order.CustomerMaxLength} caracteres."];
+        else if (!CustomerNamePattern().IsMatch(request.Cliente.Trim()))
+            errors["cliente"] = ["O nome do cliente deve conter apenas letras."];
 
         if (string.IsNullOrWhiteSpace(request.Produto))
             errors["produto"] = ["O produto é obrigatório."];

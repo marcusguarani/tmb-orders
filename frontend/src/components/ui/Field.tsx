@@ -8,7 +8,7 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 /** Campo de formulário com label, mensagem de erro e acessibilidade (aria-*). */
-export const Field = forwardRef<HTMLInputElement, FieldProps>(({ label, error, hint, className, id, ...props }, ref) => {
+export const Field = forwardRef<HTMLInputElement, FieldProps>(({ label, error, hint, className, id, required, ...props }, ref) => {
   const generatedId = useId()
   const inputId = id ?? generatedId
   const messageId = `${inputId}-message`
@@ -17,11 +17,17 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(({ label, error, h
     <div className="space-y-1.5">
       <label htmlFor={inputId} className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
         {label}
+        {required && (
+          <span className="ml-0.5 text-red-500" aria-hidden>
+            *
+          </span>
+        )}
       </label>
       <input
         ref={ref}
         id={inputId}
         aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
         aria-describedby={error || hint ? messageId : undefined}
         className={cn(
           'block h-10 w-full rounded-lg border-0 bg-white px-3 text-sm text-zinc-900 shadow-sm ring-1 ring-inset ring-zinc-300 placeholder:text-zinc-400',

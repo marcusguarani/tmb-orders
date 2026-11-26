@@ -12,10 +12,15 @@ type Errors = Partial<Record<'cliente' | 'produto' | 'valor', string>>
 
 const MAX_TEXT = 150
 
+/** Caracteres permitidos no nome do cliente: letras (com acento), espaço, apóstrofo e hífen. */
+const CUSTOMER_INVALID_CHARS = /[^\p{L}\p{M}' -]/gu
+const CUSTOMER_PATTERN = /^(?=.*\p{L})[\p{L}\p{M}' -]+$/u
+
 function validate(cliente: string, produto: string, valor: number): Errors {
   const errors: Errors = {}
   if (!cliente.trim()) errors.cliente = 'Informe o cliente.'
   else if (cliente.trim().length > MAX_TEXT) errors.cliente = `Máximo de ${MAX_TEXT} caracteres.`
+  else if (!CUSTOMER_PATTERN.test(cliente.trim())) errors.cliente = 'O nome do cliente deve conter apenas letras.'
   if (!produto.trim()) errors.produto = 'Informe o produto.'
   else if (produto.trim().length > MAX_TEXT) errors.produto = `Máximo de ${MAX_TEXT} caracteres.`
   if (valor <= 0) errors.valor = 'O valor deve ser maior que zero.'
@@ -29,6 +34,16 @@ export function NewOrderDialog() {
   const [valor, setValor] = useState(0)
   const [errors, setErrors] = useState<Errors>({})
   const createOrder = useCreateOrder()
+
+  // Bloqueia números e símbolos já na digitação (e ao colar texto), avisando o usuário.
+  const handleCustomerChange = (value: string) => {
+    const sanitized = value.replace(CUSTOMER_INVALID_CHARS, '')
+    setCliente(sanitized)
+    setErrors((prev) => ({
+      ...prev,
+      cliente: sanitized !== value ? 'Use apenas letras: números e símbolos não são permitidos.' : undefined,
+    }))
+  }
 
   const reset = () => {
     setCliente('')
@@ -107,16 +122,18 @@ export function NewOrderDialog() {
           <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
             <Field
               label="Cliente"
+              required
               placeholder="Ex.: Maria Silva"
               autoComplete="off"
               autoFocus
               maxLength={MAX_TEXT}
               value={cliente}
-              onChange={(e) => setCliente(e.target.value)}
+              onChange={(e) => handleCustomerChange(e.target.value)}
               error={errors.cliente}
             />
             <Field
               label="Produto"
+              required
               placeholder="Ex.: Notebook Dell Inspiron"
               autoComplete="off"
               maxLength={MAX_TEXT}
@@ -126,6 +143,7 @@ export function NewOrderDialog() {
             />
             <Field
               label="Valor"
+              required
               inputMode="numeric"
               placeholder="R$ 0,00"
               value={valor > 0 ? formatCurrency(valor) : ''}
@@ -134,6 +152,10 @@ export function NewOrderDialog() {
               hint="Digite apenas números — os centavos são preenchidos automaticamente."
               className="tabular-nums"
             />
+
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-red-500">*</span> Campos obrigatórios
+            </p>
 
             <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
               <Dialog.Close asChild>

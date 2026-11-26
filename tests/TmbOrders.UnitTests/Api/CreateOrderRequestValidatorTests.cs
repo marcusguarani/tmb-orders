@@ -42,4 +42,29 @@ public sealed class CreateOrderRequestValidatorTests
 
         Assert.Equal(new[] { "cliente", "produto" }, errors.Keys.Order());
     }
+
+    [Theory]
+    [InlineData("Maria Silva")]
+    [InlineData("João da Conceição")]
+    [InlineData("Ana-Maria")]
+    [InlineData("D'Ávila")]
+    public void Validate_NomeDeClienteValido_DeveSerAceito(string cliente)
+    {
+        var errors = CreateOrderRequestValidator.Validate(new CreateOrderRequest(cliente, "Notebook", 10m));
+
+        Assert.Empty(errors);
+    }
+
+    [Theory]
+    [InlineData("Maria 2")]
+    [InlineData("123")]
+    [InlineData("Maria@Silva")]
+    [InlineData("Maria_Silva")]
+    [InlineData("- '")]
+    public void Validate_NomeDeClienteComNumerosOuSimbolos_DeveRetornarErro(string cliente)
+    {
+        var errors = CreateOrderRequestValidator.Validate(new CreateOrderRequest(cliente, "Notebook", 10m));
+
+        Assert.Equal(new[] { "cliente" }, errors.Keys);
+    }
 }
