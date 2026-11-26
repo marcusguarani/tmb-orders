@@ -88,6 +88,13 @@ services:
     environment:
       <<: *dotnet-env
       OTEL_SERVICE_NAME: tmb-api
+      # Módulo de IA (qualquer API compatível com a OpenAI). Sem AI_MODEL, o módulo fica desativado.
+      Ai__BaseUrl: ${AI_BASE_URL:-https://api.openai.com/v1}
+      Ai__ApiKey: ${AI_API_KEY:-}
+      Ai__Model: ${AI_MODEL:-}
+    extra_hosts:
+      # Permite usar um Ollama rodando na própria máquina (http://host.docker.internal:11434/v1).
+      - "host.docker.internal:host-gateway"
     ports:
       - "${API_PORT:-5080}:8080"
     depends_on:

@@ -1,3 +1,4 @@
+import type { AnalyticsStatus, AssistantAnswer } from '@/types/analytics'
 import type { CreateOrderInput, Order, OrderDetails, OrderStatus } from '@/types/order'
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api'
@@ -49,4 +50,11 @@ export const ordersApi = {
 
   create: (input: CreateOrderInput) =>
     request<Order>('/orders', { method: 'POST', body: JSON.stringify(input) }),
+}
+
+export const analyticsApi = {
+  status: () => request<AnalyticsStatus>('/analytics/status'),
+
+  ask: (pergunta: string) =>
+    request<AssistantAnswer>('/analytics/ask', { method: 'POST', body: JSON.stringify({ pergunta }) }),
 }

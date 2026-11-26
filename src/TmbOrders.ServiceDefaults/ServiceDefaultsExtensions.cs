@@ -57,6 +57,8 @@ public static class ServiceDefaultsExtensions
                 tracing
                     .SetSampler(new SkipRootClientSpansSampler())
                     .AddSource(ApplicationSources)
+                    // Chamadas HTTP de saída (ex.: provedor de IA), instrumentadas nativamente no .NET 9+.
+                    .AddSource("System.Net.Http")
                     .AddAspNetCoreInstrumentation(options =>
                         options.Filter = context => !context.Request.Path.StartsWithSegments("/health"))
                     .AddNpgsql();

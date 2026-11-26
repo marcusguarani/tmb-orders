@@ -4,7 +4,7 @@ Sistema de gestão de pedidos com **processamento assíncrono via mensageria**.
 Ao criar um pedido, a API grava no PostgreSQL e publica o evento `OrderCreated`.
 Um worker consome o evento e avança o status do pedido: **Pendente → Processando → Finalizado**.
 
-> 🚧 Projeto em construção — Fase 6 (tracing ponta a ponta com OpenTelemetry + Jaeger) concluída.
+> 🚧 Projeto em construção — Fase 7 (módulo de IA "Pergunte sobre os pedidos") concluída.
 
 ## Arquitetura
 
@@ -29,6 +29,7 @@ flowchart LR
 | Mensageria | RabbitMQ 4 (com painel de administração) |
 | Administração do banco | pgAdmin 4 |
 | Frontend | React 19 + Vite + TypeScript, Tailwind CSS 4, TanStack Query, Radix UI |
+| IA / Analytics | LLM via API compatível com OpenAI (OpenAI, Gemini, Groq ou Ollama) + function calling |
 | Observabilidade | OpenTelemetry (traces) + Jaeger v2 |
 | Infraestrutura | Docker Compose + Nginx (serve o frontend e faz proxy para a API) |
 
@@ -167,6 +168,70 @@ flowchart LR
 Para ver o fallback funcionando: com a tela aberta, rode `docker compose restart api` e observe o indicador
 no canto superior direito.
 
+## Módulo de IA — Pergunte sobre os pedidos
+
+Tela **Assistente IA** (http://localhost:3000/assistente) e endpoint `POST /analytics/ask`:
+
+```bash
+curl -X POST http://localhost:5080/analytics/ask \
+  -H "Content-Type: application/json" \
+  -d '{"pergunta":"Qual o valor total de pedidos finalizados este mês?"}'
+```
+
+### Como funciona (function calling)
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant API
+    participant LLM
+    participant DB as PostgreSQL
+    U->>API: "Quantos pedidos estão pendentes?"
+    API->>LLM: pergunta + data atual + catálogo de ferramentas
+    LLM-->>API: chamar contar_pedidos(status="Pendente")
+    API->>DB: SELECT COUNT(*) ... (consulta parametrizada, somente leitura)
+    DB-->>API: 3
+    API->>LLM: resultado { total: 3 }
+    LLM-->>API: "Há 3 pedidos pendentes no momento."
+    API-->>U: resposta + consultas realizadas
+```
+
+**Por que function calling em vez de deixar a LLM gerar SQL (text-to-SQL)?**
+
+| | Text-to-SQL | Function calling (escolhido) |
+|---|---|---|
+| Segurança | A LLM escreve SQL arbitrário (risco de injeção, DELETE, vazamento) | A LLM só escolhe entre 7 funções somente leitura e parametrizadas |
+| Corretude | Pode errar joins, fuso horário e regras de negócio | Regras (fuso, "aprovado" = Finalizado, tempo pelo histórico) ficam no código, testadas |
+| Testabilidade | Difícil | Cada ferramenta tem teste de integração com banco real |
+| Transparência | SQL difícil de auditar | A tela mostra quais consultas foram feitas e os resultados |
+
+Ferramentas disponíveis: `contar_pedidos`, `resumo_por_status`, `valor_dos_pedidos`, `tempo_medio_processamento`
+(pelo histórico de status: espera na fila, execução e total), `listar_pedidos`, `ranking_clientes` e `pedidos_por_dia`.
+
+Outros cuidados:
+
+- **Datas no fuso de Brasília:** "hoje" e "este mês" são interpretados em `America/Sao_Paulo`, não em UTC.
+- **Anti-alucinação:** o prompt exige usar as ferramentas e proíbe inventar números. A resposta exibe as consultas feitas.
+- **Erros recuperáveis:** parâmetros inválidos voltam como `{ "erro": ... }` para o modelo corrigir sozinho.
+- **Limites:** até 5 rodadas de ferramentas por pergunta, pergunta com até 500 caracteres,
+  e **rate limit** de 10 perguntas por minuto por IP (protege o custo).
+- **Provedor configurável** pelo `.env`. Funciona com OpenAI, Google Gemini e Groq (os dois com cota gratuita)
+  ou **Ollama local** (sem chave e sem custo). Sem configuração, a tela explica como ativar.
+- A chamada à LLM aparece no **trace do Jaeger** (`ai.ask` → `ai.tool ...` → SQL e HTTP).
+
+### Configuração
+
+No `.env`:
+
+```bash
+# Exemplo com Google Gemini (cota gratuita: https://aistudio.google.com)
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+AI_API_KEY=sua-chave
+AI_MODEL=gemini-2.5-flash
+```
+
+Depois rode `docker compose up -d api`. Veja outras opções (OpenAI, Groq, Ollama) no `.env.example`.
+
 ## Tracing ponta a ponta (OpenTelemetry + Jaeger)
 
 Cada pedido gera **um único trace** que atravessa todos os serviços e a fila:
@@ -268,6 +333,9 @@ Cenários de integração:
 - **Fluxo completo de ponta a ponta:** API → outbox → RabbitMQ → Worker → Finalizado, com histórico na ordem correta.
 - **Idempotência:** a mesma mensagem entregue duas vezes é processada uma única vez.
 - **Concorrência:** duas instâncias processando a mesma mensagem ao mesmo tempo, e só uma efetiva a mudança.
+- **Módulo de IA:** cada ferramenta contra o banco real (contagens, valores, tempo médio pelo histórico,
+  ranking, agrupamento por dia no fuso local, parâmetros inválidos) e o *agent loop* com um modelo falso
+  (determinístico, sem chamar provedor externo).
 
 ### Golden tests
 

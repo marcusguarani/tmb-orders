@@ -1,8 +1,9 @@
-import { Moon, Sun } from 'lucide-react'
-import { Link, Outlet } from 'react-router'
+import { LayoutList, Moon, Sparkles, Sun } from 'lucide-react'
+import { Link, NavLink, Outlet } from 'react-router'
 import { RealtimeIndicator } from '@/components/RealtimeIndicator'
 import { Button } from '@/components/ui/Button'
 import { useTheme } from '@/hooks/useTheme'
+import { cn } from '@/lib/utils'
 
 function Logo() {
   return (
@@ -14,13 +15,21 @@ function Logo() {
   )
 }
 
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors',
+    isActive
+      ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white'
+      : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white',
+  )
+
 export function Layout() {
   const { theme, toggle } = useTheme()
 
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5 rounded-lg">
             <Logo />
             <div className="leading-tight">
@@ -29,7 +38,18 @@ export function Layout() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <nav aria-label="Principal" className="flex items-center gap-1">
+            <NavLink to="/" end className={navClass}>
+              <LayoutList className="h-4 w-4" />
+              <span className="hidden sm:inline">Pedidos</span>
+            </NavLink>
+            <NavLink to="/assistente" className={navClass}>
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Assistente IA</span>
+            </NavLink>
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2">
             <RealtimeIndicator />
 
             <Button

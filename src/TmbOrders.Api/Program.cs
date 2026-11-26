@@ -1,4 +1,5 @@
 using TmbOrders.Api;
+using TmbOrders.Api.Analytics;
 using TmbOrders.Api.Orders;
 using TmbOrders.Api.Realtime;
 using TmbOrders.Infrastructure;
@@ -36,6 +37,9 @@ builder.Services.AddSignalR()
 builder.Services.AddSingleton<OrderNotifier>();
 builder.Services.AddHostedService<OrderStatusNotificationListener>();
 
+// Módulo de IA: perguntas em linguagem natural sobre os pedidos (LLM + function calling).
+builder.Services.AddAnalytics(builder.Configuration);
+
 var app = builder.Build();
 
 // Migrations automáticas: o banco é criado/atualizado na subida da API.
@@ -44,17 +48,20 @@ await app.ApplyMigrationsAsync();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors(FrontendCorsPolicy);
+app.UseRateLimiter();
 
 app.MapOpenApi();
 app.MapDefaultEndpoints();
 app.MapOrderEndpoints();
 app.MapHub<OrdersHub>(OrdersHub.Route);
+app.MapAnalyticsEndpoints();
 
 app.MapGet("/", () => Results.Ok(new
 {
     service = "TMB Orders API",
     orders = "/orders",
     realtime = OrdersHub.Route,
+    analytics = "/analytics/ask",
     health = "/health",
     openApi = "/openapi/v1.json"
 }))
