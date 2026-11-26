@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup Label="Correções de segurança (dependências transitivas)">
-    <!-- Vindas de Microsoft.EntityFrameworkCore.Design (9.0.0 tinha CVEs conhecidas). -->
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.10" />
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.10" />
+    <!-- Vindas de Microsoft.EntityFrameworkCore.Design (versões anteriores à 10.0.13 têm CVEs conhecidas). -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.13" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <!-- Vinda de Microsoft.AspNetCore.OpenApi 10.0.0 (GHSA-v5pm-xwqc-g5wc, corrigida na 2.7.5). -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
   </ItemGroup>
