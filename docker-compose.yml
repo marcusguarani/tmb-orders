@@ -92,6 +92,8 @@ services:
       Ai__BaseUrl: ${AI_BASE_URL:-https://api.openai.com/v1}
       Ai__ApiKey: ${AI_API_KEY:-}
       Ai__Model: ${AI_MODEL:-}
+      Ai__ReasoningEffort: ${AI_REASONING_EFFORT:-}
+      Ai__TimeoutSeconds: ${AI_TIMEOUT_SECONDS:-120}
     extra_hosts:
       # Permite usar um Ollama rodando na própria máquina (http://host.docker.internal:11434/v1).
       - "host.docker.internal:host-gateway"

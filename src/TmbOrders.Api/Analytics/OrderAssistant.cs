@@ -63,7 +63,9 @@ public sealed class OrderAssistant(
                 .Select((call, index) => string.IsNullOrWhiteSpace(call.Id) ? call with { Id = $"call_{round}_{index}" } : call)
                 .ToList();
 
-            messages.Add(new ChatMessage("assistant", reply.Content, toolCalls));
+            // Reenvia a resposta do modelo como veio (incluindo campos extras do provedor, como a
+            // "thought_signature" do Gemini), trocando apenas as chamadas com ids normalizados.
+            messages.Add(reply with { Role = "assistant", ToolCalls = toolCalls });
 
             foreach (var call in toolCalls)
             {
